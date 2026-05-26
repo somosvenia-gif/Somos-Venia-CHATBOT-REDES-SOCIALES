@@ -1,0 +1,6 @@
+{
+  "name": "OmniCRM Workspace",
+  "description": "Unified omnicanal workspace with chat inbox, automation builder, customer segmentation database, and AI assistants powered by Gemini.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

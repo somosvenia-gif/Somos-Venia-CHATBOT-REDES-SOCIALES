@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Shield, Link, Bell, Server, Database, Bot, Sparkles, Sliders } from 'lucide-react';
+import { Settings, Shield, Bell, Server, Database, Bot, Sparkles, Sliders } from 'lucide-react';
 
 interface SettingsSectionProps {
   stitchMode: boolean;
@@ -100,58 +100,6 @@ export default function SettingsSection({
             </div>
           </div>
 
-          {/* Webhook Configuration card */}
-          <div className={`border rounded-2xl p-5 space-y-4 shadow-sm ${
-            stitchMode ? 'bg-[#181818] border-pink-500/20 text-white' : 'bg-white border-slate-200 text-slate-700'
-          }`}>
-            <h4 className={`text-sm font-semibold flex items-center gap-2 pb-2 border-b ${
-              stitchMode ? 'border-pink-500/10 text-white' : 'border-slate-100 text-slate-900'
-            }`}>
-              <Link className="w-4 h-4 text-cyan-600" /> Credenciales del Webhook Meta (WhatsApp/Instagram/Facebook)
-            </h4>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">URL del Webhook (Render Callback)</label>
-                <input 
-                  type="text" 
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                  className={`w-full border text-xs rounded p-2 focus:ring-1 focus:ring-cyan-600 focus:outline-none font-mono ${
-                    stitchMode ? 'bg-[#131313] border-pink-500/20 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
-                  }`}
-                />
-                <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
-                  Coloque esta URL en su panel de Meta App Dashboard &gt; Whatsapp &gt; Configuration.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Verify Token (Meta Subscription)</label>
-                  <input 
-                    type="text"
-                    value={verifyToken}
-                    onChange={(e) => setVerifyToken(e.target.value)}
-                    className={`w-full border text-xs rounded p-2 focus:ring-1 focus:ring-cyan-600 focus:outline-none font-mono ${
-                      stitchMode ? 'bg-[#131313] border-pink-500/20 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Meta Graph API Version</label>
-                  <input 
-                    type="text"
-                    value="v20.0"
-                    disabled
-                    className={`w-full border text-xs rounded p-2 font-mono ${
-                      stitchMode ? 'bg-[#131313] border-pink-500/20 text-pink-300' : 'bg-slate-100 border-slate-200 text-slate-500'
-                    }`}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Gemini AI Fine-Tuning variables card */}
           <div className={`border rounded-2xl p-5 space-y-4 shadow-sm ${

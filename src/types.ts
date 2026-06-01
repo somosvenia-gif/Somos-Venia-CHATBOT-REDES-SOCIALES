@@ -5,6 +5,8 @@ export interface Message {
   text: string;
   sender: 'user' | 'agent' | 'bot';
   timestamp: string; // e.g. "10:45 AM"
+  mediaUrl?: string;
+  mediaType?: 'image' | 'audio';
 }
 
 export interface Customer {

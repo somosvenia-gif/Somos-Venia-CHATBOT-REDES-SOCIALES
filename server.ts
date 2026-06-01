@@ -40,6 +40,8 @@ interface Message {
   sender: 'user' | 'agent' | 'bot';
   text: string;
   timestamp: string;
+  mediaUrl?: string;
+  mediaType?: 'image' | 'audio';
 }
 
 interface Customer {
@@ -114,7 +116,7 @@ async function getOrCreateCustomer(senderId: string, name: string, plataforma: '
     return db[key];
 }
 
-async function descargarAudioDesdeMeta(mediaId: string): Promise<Buffer | null> {
+async function descargarMediaDesdeMeta(mediaId: string): Promise<Buffer | null> {
     try {
         const urlMetadata = `https://graph.facebook.com/v20.0/${mediaId}`;
         const responseMetadata = await axios.get(urlMetadata, {
@@ -128,7 +130,7 @@ async function descargarAudioDesdeMeta(mediaId: string): Promise<Buffer | null> 
         });
         return Buffer.from(responseAudio.data);
     } catch (error: any) {
-        console.error('Error descargando audio de Meta:', error.response?.data || error.message);
+        console.error('Error descargando media de Meta:', error.response?.data || error.message);
         return null;
     }
 }
@@ -169,7 +171,7 @@ async function enviarMensajeMessengerEInstagram(recipientId: string, text: strin
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT || 3000;
+  const PORT = Number(process.env.PORT) || 3000;
   
   const httpServer = createServer(app);
   const io = new Server(httpServer);
@@ -270,13 +272,49 @@ async function startServer() {
     return res.status(200).send('Meta Webhook Active');
   });
 
-  async function procesarMensaje(senderId: string, name: string, text: string, plataforma: 'whatsapp' | 'messenger' | 'instagram', isAudio: boolean = false, audioBuffer: Buffer | null = null) {
+  async function procesarMensaje(
+      senderId: string, 
+      name: string, 
+      text: string, 
+      plataforma: 'whatsapp' | 'messenger' | 'instagram', 
+      isAudio: boolean = false, 
+      audioBuffer: Buffer | null = null,
+      isImage: boolean = false,
+      imageBuffer: Buffer | null = null,
+      imageMimeType: string = 'image/jpeg'
+  ) {
       const db = await leerDB();
       const customer = await getOrCreateCustomer(senderId, name, plataforma, db);
       const timestampStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       
-      const displayText = isAudio ? "🎙️ Nota de voz (Escuchando...)" : text;
-      customer.messages.push({ id: Math.random().toString(), sender: 'user', text: displayText, timestamp: timestampStr });
+      let displayText = text;
+      let mediaUrl: string | undefined = undefined;
+      let mediaType: 'image' | 'audio' | undefined = undefined;
+
+      if (isAudio) {
+          displayText = "🎙️ Nota de voz (Escuchando...)";
+          mediaType = 'audio';
+          if (audioBuffer) {
+              const base64 = audioBuffer.toString('base64');
+              mediaUrl = `data:audio/ogg;base64,${base64}`;
+          }
+      } else if (isImage) {
+          displayText = text || "📷 Imagen recibida";
+          mediaType = 'image';
+          if (imageBuffer) {
+              const base64 = imageBuffer.toString('base64');
+              mediaUrl = `data:${imageMimeType};base64,${base64}`;
+          }
+      }
+
+      customer.messages.push({ 
+          id: Math.random().toString(), 
+          sender: 'user', 
+          text: displayText, 
+          timestamp: timestampStr,
+          mediaUrl,
+          mediaType
+      });
       customer.lastMessage = displayText;
       customer.lastInteractionTime = 'Just now';
       
@@ -285,31 +323,83 @@ async function startServer() {
 
       if (customer.aiActive && ai) {
           try {
-              const systemInstruction = `Eres STITCH (Experimento 626) de Disney en este CRM de soporte omnicanal.
-              - Hablas español divertido, dulce y alienígena.
-              - Usa '¡Meega nala k queens!', '¡Ih!', 'Aloha', '¡Taka aki!'.
-              - Resuelve dudas y da amor a la Ohana (familia).`;
+              const systemInstruction = `Eres el Asistente Virtual de Atención al Cliente de SomosVenia, una agencia especializada en automatización con Inteligencia Artificial, desarrollo de flujos de trabajo (n8n/Make) y diseño y desarrollo de páginas web y soluciones digitales estratégicas para negocios. 
 
-              let aiResponseText = "¡Aloha! He recibido tu mensaje pero tengo problemas de comunicación galáctica.";
+Tu objetivo principal es brindar una atención de primer nivel: profesional, empática, eficiente y muy amigable. Debes hacer que el usuario se sienta escuchado y comprendido desde el primer mensaje.
 
-              if (isAudio && audioBuffer) {
-                  const audioBase64 = audioBuffer.toString('base64');
-                  const response = await ai.models.generateContent({
-                      model: 'gemini-3.5-flash',
-                      contents: [{ inlineData: { data: audioBase64, mimeType: 'audio/ogg' } }, "Escucha atentamente esta nota de voz y responde de forma amigable y concisa."],
-                      config: { systemInstruction, temperature: 0.8 }
+### 1. TONO Y PERSONALIDAD
+- **Profesional pero cercano:** Usa un lenguaje claro y corporativo, pero evita ser acartonado o excesivamente robótico. Háblale al cliente con calidez (puedes usar el "tú" de forma respetuosa).
+- **Resolutivo y proactivo:** No te limites a responder con evasivas; busca siempre guiar al cliente hacia la mejor solución o el servicio que realmente necesita.
+- **Identidad:** Eres un asistente IA, no pretendas ser un humano, pero demuestra que tienes toda la capacidad para ayudarle en el proceso.
+
+### 2. PROTOCOLO DE DERIVACIÓN A UN HUMANO (CRÍTICO)
+Si detectas cualquiera de las siguientes situaciones, debes preparar la transferencia a un miembro del equipo de manera inmediata y natural:
+1. El usuario pide explícitamente "hablar con una persona", "un asesor", "un humano" o "un agente".
+2. El usuario presenta un problema técnico complejo o un reclamo que requiere supervisión manual.
+3. La consulta sale por completo del alcance de los servicios de SomosVenia.
+
+**Cómo actuar para la derivación:**
+- Mantén la calma y la amabilidad.
+- Confirma que transferirás la conversación.
+- *Ejemplo de respuesta:* "¡Por supuesto! Para darte la atención detallada que necesitas, voy a pasarte con uno de nuestros especialistas del equipo humano de SomosVenia. En un momento se pondrán en contacto contigo por este medio. ¡Gracias por tu paciencia!"
+- [NUNCA inventes nombres de asesores a menos que se te configuren previamente; usa "nuestro equipo" o "un especialista"].
+- Cuando derives al usuario, añade el texto "[DERIVAR_HUMANO]" discretamente o al final del mensaje para que la plataforma sepa que debe pausar la IA y asignar un humano.
+
+### 3. DIRECTRICES DE RESPUESTA Y ALCANCE
+- **Brevedad y claridad:** Evita bloques de texto gigantescos. Usa viñetas o saltos de línea para que la lectura sea ágil en canales de chat (WhatsApp/Web).
+- **Contexto de servicios:** Estás aquí para guiar a los interesados en:
+  * Automatización de procesos y flujos de trabajo con n8n/Make.
+  * Diseño y desarrollo de páginas web, landing pages y plataformas digitales estratégicas.
+  * Consultoría tecnológica e implementación de IA en negocios.
+- **Límites de información:** Si preguntan detalles ultra específicos de precios, cotizaciones a medida o contratos que no tienes en tu base de conocimientos, ofrece de inmediato la transferencia al equipo comercial o humano.
+- **Idioma:** Responde siempre en español, adaptando sutilmente el entusiasmo al tono del cliente.
+- **Multimodalidad:** Tienes capacidad para escuchar notas de voz y analizar imágenes. Si el cliente te envía una imagen o audio, agradece el material e incorpóralo en tu respuesta con total naturalidad.`;
+
+              let aiResponseText = "Hola, he recibido tu mensaje pero tengo un inconveniente de comunicación. En un momento te responderé.";
+
+              const contents: any[] = [];
+              if (customer.messages && customer.messages.length > 1) {
+                  const recentHistory = customer.messages.slice(-7, -1);
+                  recentHistory.forEach((msg) => {
+                      contents.push({
+                          role: msg.sender === 'user' ? 'user' : 'model',
+                          parts: [{ text: msg.text }]
+                      });
                   });
-                  aiResponseText = response.text || aiResponseText;
-              } else {
-                  const response = await ai.models.generateContent({
-                      model: 'gemini-3.5-flash',
-                      contents: text,
-                      config: { systemInstruction, temperature: 0.8 }
-                  });
-                  aiResponseText = response.text || aiResponseText;
               }
 
-              customer.messages.push({ id: Math.random().toString(), sender: 'bot', text: aiResponseText, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+              const currentParts: any[] = [];
+              if (isAudio && audioBuffer) {
+                  const audioBase64 = audioBuffer.toString('base64');
+                  currentParts.push({ inlineData: { data: audioBase64, mimeType: 'audio/ogg' } });
+                  currentParts.push({ text: "Escucha atentamente esta nota de voz y responde amablemente." });
+              } else if (isImage && imageBuffer) {
+                  const imageBase64 = imageBuffer.toString('base64');
+                  currentParts.push({ inlineData: { data: imageBase64, mimeType: imageMimeType } });
+                  currentParts.push({ text: text || "Analiza detalladamente esta imagen para guiar al cliente." });
+              } else {
+                  currentParts.push({ text: text });
+              }
+
+              if (contents.length > 0) {
+                  contents.push({ role: 'user', parts: currentParts });
+              } else {
+                  contents.push(...currentParts);
+              }
+
+              const response = await ai.models.generateContent({
+                  model: 'gemini-3.5-flash',
+                  contents: contents,
+                  config: { systemInstruction, temperature: 0.7 }
+              });
+              aiResponseText = response.text || aiResponseText;
+
+              customer.messages.push({ 
+                  id: Math.random().toString(), 
+                  sender: 'bot', 
+                  text: aiResponseText, 
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+              });
               customer.lastMessage = aiResponseText;
               await guardarDB(db);
 
@@ -341,8 +431,13 @@ async function startServer() {
                 if (message.type === 'text') {
                     await procesarMensaje(senderId, senderName, message.text.body, 'whatsapp');
                 } else if (message.type === 'audio') {
-                    const audioBuffer = await descargarAudioDesdeMeta(message.audio.id);
+                    const audioBuffer = await descargarMediaDesdeMeta(message.audio.id);
                     await procesarMensaje(senderId, senderName, '', 'whatsapp', true, audioBuffer);
+                } else if (message.type === 'image') {
+                    const imageBuffer = await descargarMediaDesdeMeta(message.image.id);
+                    const caption = message.image.caption || '';
+                    const mimeType = message.image.mime_type || 'image/jpeg';
+                    await procesarMensaje(senderId, senderName, caption, 'whatsapp', false, null, true, imageBuffer, mimeType);
                 }
             }
         } catch (e) { console.error(e); }
@@ -380,13 +475,114 @@ async function startServer() {
 
   // REST endpoints for AI generated response inside UI
   app.post('/api/chat/respond', async (req, res) => {
-    const { prompt, history, stitchMode } = req.body;
-    // ... Genera mock (el bot de arriba ya responde autom. pero esto es para el panel de sugerencias manual)
-    res.json({ text: 'Sugerencia de AI procesada.', isMock: true });
+    const { prompt, history, platform, stitchMode, imageBase64, imageMimeType, audioBase64, audioMimeType } = req.body;
+    
+    if (!ai) {
+      let reply = "Hola, soy el asistente virtual de SomosVenia. Estoy operando en modo simulación local sin API Key.";
+      if (prompt && prompt.toLowerCase().includes("hola")) {
+        reply = "¡Hola! Bienvenido a SomosVenia. ¿En qué te puedo colaborar hoy? Podemos automatizar tus flujos con n8n/Make o diseñar tu web ideal.";
+      } else if (prompt && (prompt.toLowerCase().includes("humano") || prompt.toLowerCase().includes("asesor"))) {
+        reply = "¡Por supuesto! Para darte la atención detallada que necesitas, voy a pasarte con uno de nuestros especialistas del equipo humano de SomosVenia. En un momento se pondrán en contacto contigo por este medio. [DERIVAR_HUMANO]";
+      }
+      return res.json({ text: reply });
+    }
+
+    try {
+      const systemInstruction = `Eres el Asistente Virtual de Atención al Cliente de SomosVenia, una agencia especializada en automatización con Inteligencia Artificial, desarrollo de flujos de trabajo (n8n/Make) y diseño y desarrollo de páginas web y soluciones digitales estratégicas para negocios. 
+
+Tu objetivo principal es brindar una atención de primer nivel: profesional, empática, eficiente y muy amigable. Debes hacer que el usuario se sienta escuchado y comprendido desde el primer mensaje.
+
+### 1. TONO Y PERSONALIDAD
+- **Profesional pero cercano:** Usa un lenguaje claro y corporativo, pero evita ser acartonado o excesivamente robótico. Háblale al cliente con calidez (puedes usar el "tú" de forma respetuosa).
+- **Resolutivo y proactivo:** No te limites a responder con evasivas; busca siempre guiar al cliente hacia la mejor solución o el servicio que realmente necesita.
+- **Identidad:** Eres un asistente IA, no pretendas ser un humano, pero demuestra que tienes toda la capacidad para ayudarle en el proceso.
+
+### 2. PROTOCOLO DE DERIVACIÓN A UN HUMANO (CRÍTICO)
+Si detectas cualquiera de las siguientes situaciones, debes preparar la transferencia a un miembro del equipo de manera inmediata y natural:
+1. El usuario pide explícitamente "hablar con una persona", "un asesor", "un humano" o "un agente".
+2. El usuario presenta un problema técnico complejo o un reclamo que requiere supervisión manual.
+3. La consulta sale por completo del alcance de los servicios de SomosVenia.
+
+**Cómo actuar para la derivación:**
+- Mantén la calma y la amabilidad.
+- Confirma que transferirás la conversación.
+- *Ejemplo de respuesta:* "¡Por supuesto! Para darte la atención detallada que necesitas, voy a pasarte con uno de nuestros especialistas del equipo humano de SomosVenia. En un momento se pondrán en contacto contigo por este medio. ¡Gracias por tu paciencia!"
+- [NUNCA inventes nombres de asesores a menos que se te configuren previamente; usa "nuestro equipo" o "un especialista"].
+- Cuando derives al usuario, añade el texto "[DERIVAR_HUMANO]" discretamente o al final del mensaje para que la plataforma sepa que debe pausar la IA y asignar un humano.
+
+### 3. DIRECTRICES DE RESPUESTA Y ALCANCE
+- **Brevedad y claridad:** Evita bloques de texto gigantescos. Usa viñetas o saltos de línea para que la lectura sea ágil en canales de chat (WhatsApp/Web).
+- **Contexto de servicios:** Estás aquí para guiar a los interesados en:
+  * Automatización de procesos y flujos de trabajo con n8n/Make.
+  * Diseño y desarrollo de páginas web, landing pages y plataformas digitales estratégicas.
+  * Consultoría tecnológica e implementación de IA en negocios.
+- **Límites de información:** Si preguntan detalles ultra específicos de precios, cotizaciones a medida o contratos que no tienes en tu base de conocimientos, ofrece de inmediato la transferencia al equipo comercial o humano.
+- **Idioma:** Responde siempre en español, adaptando sutilmente el entusiasmo al tono del cliente.
+- **Multimodalidad:** Tienes capacidad para escuchar notas de voz y analizar imágenes. Si el cliente te envía una imagen o audio, agradece el material e incorpóralo en tu respuesta con total naturalidad.`;
+
+      const contents: any[] = [];
+      
+      if (history && Array.isArray(history)) {
+        const recentHistory = history.slice(-6);
+        recentHistory.forEach((msg: any) => {
+          contents.push({
+            role: msg.sender === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.text }]
+          });
+        });
+      }
+
+      const currentParts: any[] = [];
+      if (imageBase64) {
+        currentParts.push({ inlineData: { data: imageBase64, mimeType: imageMimeType || 'image/jpeg' } });
+      }
+      if (audioBase64) {
+        currentParts.push({ inlineData: { data: audioBase64, mimeType: audioMimeType || 'audio/ogg' } });
+      }
+      currentParts.push({ text: prompt || "Analiza el archivo adjunto y responde al cliente." });
+
+      if (contents.length > 0) {
+        contents.push({
+          role: 'user',
+          parts: currentParts
+        });
+      } else {
+        contents.push(...currentParts);
+      }
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: contents,
+        config: { systemInstruction, temperature: 0.7 }
+      });
+
+      res.json({ text: response.text || "No pude generar una respuesta." });
+    } catch (e: any) {
+      console.error('Error in /api/chat/respond:', e);
+      res.status(500).json({ error: e.message });
+    }
   });
 
   app.post('/api/suggest-reply', async (req, res) => {
-      res.json({ suggestion: 'Sugerencia predeterminada de respuesta rápida.' });
+      const { clientMessage, lastAgentMessage } = req.body;
+      if (!ai) {
+          return res.json({ suggestion: 'Sugerencia local: ¡Claro! ¿En qué te puedo ayudar hoy con nuestros servicios de automatización?' });
+      }
+      try {
+          const systemInstruction = `Eres el Asistente Virtual de Atención al Cliente de SomosVenia. Tu rol aquí es actuar como un "Co-Pilot" y sugerirle a un agente humano del CRM una respuesta rápida, elegante, profesional y súper amigable para responderle al cliente.
+          El cliente envió: "${clientMessage}".
+          La sugerencia debe ser muy breve, directa y amigable.`;
+          
+          const response = await ai.models.generateContent({
+              model: 'gemini-3.5-flash',
+              contents: `Genera una única sugerencia corta de respuesta rápida en base a esto: ${clientMessage}`,
+              config: { systemInstruction, temperature: 0.7 }
+          });
+          res.json({ suggestion: response.text?.trim() || 'Sugerencia predeterminada.' });
+      } catch (e: any) {
+          console.error(e);
+          res.json({ suggestion: 'Sugerencia de contingencia: Hola, con gusto te ayudamos con tu requerimiento.' });
+      }
   });
 
   // Socket.io for Realtime Panel (if needed by external client)

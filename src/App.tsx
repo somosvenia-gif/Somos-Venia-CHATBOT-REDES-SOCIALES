@@ -190,20 +190,20 @@ export default function App() {
           {/* Logo Group */}
           <div className="px-2 flex items-center gap-2.5">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black ${
-              stitchMode ? 'bg-[#d70357] text-white animate-bounce' : 'bg-cyan-600 text-white'
+              stitchMode ? 'bg-[#d70357] text-white animate-bounce' : 'bg-gradient-to-r from-red-500 to-orange-500 text-white'
             }`}>
-              {stitchMode ? '👾' : 'O'}
+              {stitchMode ? '👾' : 'V'}
             </div>
             <div>
               <h1 className={`text-base font-black tracking-tight flex items-center gap-1 leading-none ${
                 stitchMode ? 'text-white' : 'text-slate-950'
               }`}>
-                {stitchMode ? 'Lilo CRM' : 'OmniCRM'}
+                {stitchMode ? 'Lilo CRM' : 'SomosVenia'}
               </h1>
               <span className={`text-[10px] uppercase tracking-widest font-mono leading-none ${
                 stitchMode ? 'text-pink-300' : 'text-slate-400'
               }`}>
-                {stitchMode ? 'Stitch Edition' : 'Active Session'}
+                {stitchMode ? 'Stitch Edition' : 'AI Copilot v1.0'}
               </span>
             </div>
           </div>
@@ -302,7 +302,7 @@ export default function App() {
           <div className="space-y-0.5">
             <a 
               href="#" 
-              onClick={() => alert("❓ Documentación de OmniCRM: Conéctese con sus API keys corporativas en Settings > Secrets.")}
+              onClick={() => alert("❓ Documentación de SomosVenia: Conéctese con sus API keys corporativas en Settings > Secrets.")}
               className={`flex items-center gap-2.5 px-3 py-1.5 text-xs transition-colors ${
                 stitchMode ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
@@ -313,7 +313,7 @@ export default function App() {
             <a 
               href="#" 
               onClick={() => {
-                if (confirm('¿Cerrar sesión en OmniCRM Workspace Simulado?')) {
+                if (confirm('¿Cerrar sesión en SomosVenia Workspace Simulado?')) {
                   alert('Sesión cerrada. ¡Hasta luego!');
                 }
               }}
@@ -386,7 +386,7 @@ export default function App() {
               <Bell className="w-5 h-5" />
             </button>
             <button 
-              onClick={() => alert("⚙️ OmniCRM Dashboard Apps vinculadas")}
+              onClick={() => alert("⚙️ SomosVenia Dashboard Apps vinculadas")}
               className={`transition-all p-1 whitespace-nowrap cursor-pointer ${
                 stitchMode ? 'text-pink-300 hover:text-pink-100' : 'text-slate-500 hover:text-slate-800'
               }`}

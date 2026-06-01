@@ -35,6 +35,13 @@ export default function InboxSection({
   const [suggesting, setSuggesting] = useState(false);
   const [tempNotes, setTempNotes] = useState('');
   
+  // Multimodal states
+  const [selectedImage, setSelectedImage] = useState<{ base64: string; mimeType: string; name: string; preview: string } | null>(null);
+  const [selectedAudio, setSelectedAudio] = useState<{ base64: string; mimeType: string; name: string } | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const activeCustomer = customers.find(c => c.id === activeCustomerId) || customers[0];
@@ -43,8 +50,92 @@ export default function InboxSection({
     if (activeCustomer) {
       setTempNotes(activeCustomer.notes);
       setAiSuggestion(null);
+      setSelectedImage(null);
+      setSelectedAudio(null);
     }
   }, [activeCustomerId]);
+
+  // Recording timer effect
+  useEffect(() => {
+    let interval: any = null;
+    if (isRecording) {
+      interval = setInterval(() => {
+        setRecordingSeconds(s => s + 1);
+      }, 1000);
+    } else {
+      setRecordingSeconds(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isRecording]);
+
+  // Start real browser voice recording
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64data = (reader.result as string).split(',')[1];
+          setSelectedAudio({
+            base64: base64data,
+            mimeType: 'audio/ogg',
+            name: `Nota-de-voz-${new Date().toLocaleTimeString().replace(/\s/g, '')}.ogg`
+          });
+        };
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setRecordingSeconds(0);
+    } catch (err) {
+      console.error("No se pudo iniciar el grabador de audio:", err);
+      alert("🎙️ [Simulador de micrófono]: No se pudo acceder a tu micrófono real (por permisos o soporte). Generando una nota de voz simulada de alta calidad sobre consultoría de automatización...");
+      setSelectedAudio({
+        base64: "T2dnUwACAAAAAAAAAAA=", // placeholder small base64 chunk
+        mimeType: 'audio/ogg',
+        name: 'Nota_de_voz_Consultoria.ogg'
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onloadend = () => {
+      const base64data = (reader.result as string).split(',')[1];
+      setSelectedImage({
+        base64: base64data,
+        mimeType: file.type,
+        name: file.name,
+        preview: reader.result as string
+      });
+    };
+  };
 
   // Scroll to bottom of message thread
   useEffect(() => {
@@ -99,8 +190,7 @@ export default function InboxSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientMessage: lastUserMsg,
-          lastAgentMessage: lastAgentMsg,
-          stitchMode
+          lastAgentMessage: lastAgentMsg
         })
       });
 
@@ -110,7 +200,7 @@ export default function InboxSection({
       }
     } catch (e) {
       console.error('Failed to query suggested reply:', e);
-      setAiSuggestion(stitchMode ? '¡Ih! Stitch sugiere decir: ¡Amamos tu Ohana!' : 'Sugerencia: Permítanos revisar su caso de inmediato.');
+      setAiSuggestion('Sugerencia: Estimado cliente, con gusto agendamos una llamada de consultoría técnica.');
     } finally {
       setSuggesting(false);
     }
@@ -119,24 +209,44 @@ export default function InboxSection({
   // Send message manual or trigger AI autoresponse
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() && !selectedImage && !selectedAudio) return;
+
+    let mediaUrl: string | undefined = undefined;
+    let mediaType: 'image' | 'audio' | undefined = undefined;
+    let textToSend = inputText;
+
+    if (selectedImage) {
+      mediaUrl = selectedImage.preview;
+      mediaType = 'image';
+      if (!textToSend.trim()) {
+        textToSend = `📷 Imagen: ${selectedImage.name}`;
+      }
+    } else if (selectedAudio) {
+      mediaUrl = `data:audio/ogg;base64,${selectedAudio.base64}`;
+      mediaType = 'audio';
+      textToSend = `🎙️ Nota de voz: ${selectedAudio.name}`;
+    }
 
     const userMsg: Message = {
       id: Math.random().toString(),
-      text: inputText,
+      text: textToSend,
       sender: 'agent',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      mediaUrl,
+      mediaType
     };
 
     const updatedCustomer = {
       ...activeCustomer,
-      lastMessage: inputText,
+      lastMessage: textToSend,
       lastInteractionTime: 'Just now',
       messages: [...activeCustomer.messages, userMsg]
     };
 
     onUpdateCustomer(updatedCustomer);
     setInputText('');
+    setSelectedImage(null);
+    setSelectedAudio(null);
     setAiSuggestion(null);
 
     // Forward manual agent message to custom webhook proxy (CORS safe)
@@ -160,10 +270,14 @@ export default function InboxSection({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            prompt: inputText,
+            prompt: textToSend,
             history: activeCustomer.messages,
             platform: activeCustomer.platform,
-            stitchMode
+            stitchMode,
+            imageBase64: selectedImage?.base64,
+            imageMimeType: selectedImage?.mimeType,
+            audioBase64: selectedAudio?.base64,
+            audioMimeType: selectedAudio?.mimeType
           })
         });
 
@@ -208,7 +322,7 @@ export default function InboxSection({
   const handleAttachTemplate = () => {
     const defaultTemplate = stitchMode 
       ? '¡Aloha! Ohana significa familia, y la familia nunca abandona a los clientes de la galaxia. ¿Quieres ver un demo hoy?'
-      : 'Estimado cliente, gracias por elegir OmniCRM. El Builder de automatizaciones está listo para implementarse.';
+      : 'Estimado cliente, gracias por elegir SomosVenia. El Builder de automatizaciones está listo para implementarse.';
     setInputText(defaultTemplate);
   };
 
@@ -238,7 +352,7 @@ export default function InboxSection({
   const handleCreateDeal = () => {
     const currencySym = stitchMode ? '🥥 Cocos Cósmicos' : 'USD';
     const amountVal = stitchMode ? '5,000' : '2,500';
-    alert(`💼 ¡Trato creado en OmniCRM Pipeline!\nLead: ${activeCustomer.name}\nMódulo de Oportunidad comercial valorada en: $${amountVal} ${currencySym}\nFase: Negociación Inicial.`);
+    alert(`💼 ¡Trato creado en SomosVenia Pipeline!\nLead: ${activeCustomer.name}\nMódulo de Oportunidad comercial valorada en: $${amountVal} ${currencySym}\nFase: Negociación Inicial.`);
   };
 
   // Filter & Search chats
@@ -461,14 +575,14 @@ export default function InboxSection({
                 ? 'bg-[#201f1f] border border-pink-500/20 text-white' 
                 : 'bg-white border border-slate-200 text-slate-800 shadow-sm';
               alignClass = 'items-end self-end';
-              labelIcon = '👔 OmniCRM Marcus';
+              labelIcon = '👔 SomosVenia Marcus';
               glowClass = '';
             } else if (isBot) {
               bubbleColor = stitchMode 
                 ? 'bg-cyan-800 text-white' 
                 : 'bg-indigo-50 border border-indigo-100 text-slate-800';
               alignClass = 'items-start';
-              labelIcon = stitchMode ? '👽 Stitch Bot (Auto-IA)' : '🤖 OmniBot (Auto-IA)';
+              labelIcon = stitchMode ? '👽 Stitch Bot (Auto-IA)' : '🤖 VeniaBot (Auto-IA)';
               glowClass = '';
             } else if (isUser) {
               bubbleColor = stitchMode 
@@ -489,6 +603,21 @@ export default function InboxSection({
                 <div className={`${bubbleColor} p-3 rounded-2xl ${
                   isAgent ? 'rounded-tr-none' : 'rounded-tl-none'
                 } ${glowClass} shadow-sm`}>
+                  {msg.mediaType === 'image' && msg.mediaUrl && (
+                    <div className="mb-2 max-w-full">
+                      <img 
+                        src={msg.mediaUrl} 
+                        className="max-w-full max-h-60 rounded-xl object-contain border border-slate-200 shadow-sm cursor-zoom-in" 
+                        alt="Adjunto" 
+                        onClick={() => window.open(msg.mediaUrl, '_blank')}
+                      />
+                    </div>
+                  )}
+                  {msg.mediaType === 'audio' && msg.mediaUrl && (
+                    <div className="mb-2 py-1">
+                      <audio src={msg.mediaUrl} controls className="w-full max-w-[240px] h-9 focus:outline-none" />
+                    </div>
+                  )}
                   <p className="text-xs font-sans leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                 </div>
               </div>
@@ -515,10 +644,70 @@ export default function InboxSection({
 
         {/* Chat Input Footer Area */}
         <div className={`p-4 border-t ${stitchMode ? 'bg-[#1c1b1b] border-pink-500/20' : 'bg-white border-slate-200'}`}>
+          {/* Media Previews and Recording overlays */}
+          {selectedImage && (
+            <div className="mb-3.5 p-2 bg-slate-100 rounded-xl flex items-center justify-between border border-slate-200 shadow-sm max-w-xs animate-fade-in relative">
+              <div className="flex items-center gap-2">
+                <img src={selectedImage.preview} className="w-10 h-10 rounded-lg object-cover border border-slate-350" alt="Vista previa" />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-800 truncate">{selectedImage.name}</p>
+                  <p className="text-[10px] text-slate-500 font-mono">Imagen lista para analizar</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setSelectedImage(null)} 
+                className="text-slate-400 hover:text-rose-600 font-black text-sm p-1 ml-2 transition-colors cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {selectedAudio && (
+            <div className="mb-3.5 p-2 bg-slate-100 rounded-xl flex items-center justify-between border border-slate-200 shadow-sm max-w-xs animate-fade-in relative">
+              <div className="flex items-center gap-2 flex-grow min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-cyan-100 text-cyan-600 flex items-center justify-center font-bold text-base shrink-0">
+                  🎙️
+                </div>
+                <div className="min-w-0 flex-1 ml-2">
+                  <p className="text-xs font-bold text-slate-800 truncate">{selectedAudio.name}</p>
+                  <p className="text-[10px] text-slate-500 font-mono">Nota de voz lista para analizar</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setSelectedAudio(null)} 
+                className="text-slate-400 hover:text-rose-600 font-black text-sm p-1 ml-2 transition-colors cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {isRecording && (
+            <div className="mb-3.5 p-2.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between shadow-sm max-w-xs animate-pulse">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping"></span>
+                <div>
+                  <p className="text-xs font-bold text-rose-800">Grabando nota de voz...</p>
+                  <p className="text-[10px] text-rose-600 font-mono">{recordingSeconds}s transcurridos</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={stopRecording} 
+                className="bg-rose-600 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg hover:bg-rose-700 transition-colors"
+              >
+                Detener
+              </button>
+            </div>
+          )}
+
           <form onSubmit={handleSendMessage} className={`flex items-end gap-3 rounded-xl p-2.5 border focus-within:ring-1 focus-within:ring-cyan-600 transition-all ${
             stitchMode ? 'bg-[#201f1f] border-pink-500/20' : 'bg-slate-50 border-slate-200'
           }`}>
-            <div className="flex flex-col gap-2 mb-1 shrink-0">
+            <div className="flex items-center gap-1.5 mb-1 shrink-0">
               <button 
                 type="button"
                 onClick={handleAttachTemplate}
@@ -527,8 +716,24 @@ export default function InboxSection({
               >
                 <PlusCircle className="w-5 h-5" />
               </button>
-            </div>
 
+              <button 
+                type="button"
+                onClick={() => document.getElementById('image-upload')?.click()}
+                title="Adjuntar Imagen"
+                className={`transition-colors cursor-pointer ${stitchMode ? 'text-pink-300 hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+              <input 
+                type="file" 
+                id="image-upload" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleImageChange} 
+              />
+            </div>
+ 
             <textarea 
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
@@ -544,13 +749,13 @@ export default function InboxSection({
                 stitchMode ? 'text-white placeholder-pink-300/40' : 'text-slate-800 placeholder-slate-400'
               }`}
             />
-
+ 
             <div className="flex items-center gap-2 mb-1 shrink-0">
               <button 
                 type="button"
-                title="Microfono simulador"
-                onClick={() => alert("🎙️ Simulador de Grabador: Hable su mensaje. ¡Nota de voz registrada en ogg format para que Gemini la procese nativamente!")}
-                className={`transition-colors cursor-pointer ${stitchMode ? 'text-pink-300 hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}
+                title={isRecording ? "Detener grabación" : "Grabar nota de voz"}
+                onClick={isRecording ? stopRecording : startRecording}
+                className={`transition-colors cursor-pointer ${isRecording ? 'text-rose-600 animate-bounce' : stitchMode ? 'text-pink-300 hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}
               >
                 <Mic className="w-5 h-5" />
               </button>

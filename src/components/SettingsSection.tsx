@@ -20,7 +20,7 @@ export default function SettingsSection({
   onRestoreMockData,
   totalCustomers
 }: SettingsSectionProps) {
-  const [verifyToken, setVerifyToken] = useState('meta_omnicrm_token_99');
+  const [verifyToken, setVerifyToken] = useState('meta_somosvenia_token_99');
   const [temperature, setTemperature] = useState(0.3);
   const [simulatedLog, setSimulatedLog] = useState<string[]>([]);
   const [testingWebhook, setTestingWebhook] = useState(false);

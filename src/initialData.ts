@@ -22,7 +22,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
       {
         id: '1',
         sender: 'bot',
-        text: "Hello Sarah! I'm the OmniCRM assistant. How can I help you today regarding our business plans?",
+        text: "¡Hola Sarah! Soy el asistente virtual de SomosVenia. ¿En qué te puedo ayudar hoy con nuestros servicios de automatización con IA o desarrollo web?",
         timestamp: '10:45 AM'
       },
       {

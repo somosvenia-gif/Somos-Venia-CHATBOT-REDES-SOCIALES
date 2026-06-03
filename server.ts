@@ -539,7 +539,7 @@ Si detectas cualquiera de las siguientes situaciones, debes preparar la transfer
       if (audioBase64) {
         currentParts.push({ inlineData: { data: audioBase64, mimeType: audioMimeType || 'audio/ogg' } });
       }
-      currentParts.push({ text: prompt || "Analiza el archivo adjunto y responde al cliente." });
+      currentParts.push({ text: prompt || process.env.PROMPT_DEFAULT });
 
       if (contents.length > 0) {
         contents.push({
@@ -589,6 +589,35 @@ Si detectas cualquiera de las siguientes situaciones, debes preparar la transfer
   io.on('connection', async (socket) => {
       const db = await leerDB();
       socket.emit('init_chats', db);
+  });
+
+  // New configuration endpoints for prompt editing
+  app.get('/api/config/prompt', (req, res) => {
+    res.json({ prompt: process.env.PROMPT_DEFAULT || '' });
+  });
+  app.post('/api/config/prompt', async (req, res) => {
+    const { prompt } = req.body;
+    const fs = await import('fs');
+    const envPath = path.resolve(__dirname, '..', '.env');
+    try {
+      let envContent = fs.readFileSync(envPath, 'utf8');
+      const regex = /^PROMPT_DEFAULT=.*$/m;
+      if (regex.test(envContent)) {
+        envContent = envContent.replace(regex, `PROMPT_DEFAULT=${prompt}`);
+      } else {
+        envContent += `\nPROMPT_DEFAULT=${prompt}`;
+      }
+      fs.writeFileSync(envPath, envContent, 'utf8');
+      // Git commit and push changes
+      const { execSync } = await import('child_process');
+      execSync('git add .env');
+      execSync(`git commit -m "Update AI prompt"`);
+      execSync('git push origin main');
+      res.json({ success: true });
+    } catch (e) {
+      console.error('Error updating prompt:', e);
+      res.status(500).json({ error: 'Failed to update prompt' });
+    }
   });
 
   // Vite development middleware or production static build server

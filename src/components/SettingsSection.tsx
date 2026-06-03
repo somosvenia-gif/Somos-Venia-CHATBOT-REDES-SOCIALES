@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, Shield, Bell, Server, Database, Bot, Sparkles, Sliders } from 'lucide-react';
 
 interface SettingsSectionProps {
@@ -24,6 +24,35 @@ export default function SettingsSection({
   const [temperature, setTemperature] = useState(0.3);
   const [simulatedLog, setSimulatedLog] = useState<string[]>([]);
   const [testingWebhook, setTestingWebhook] = useState(false);
+  const [prompt, setPrompt] = useState('');
+  const [saveStatus, setSaveStatus] = useState('');
+  // Fetch current prompt on component mount
+  useEffect(() => {
+    fetch('/api/config/prompt')
+      .then(res => res.json())
+      .then(data => {
+        if (data.prompt) setPrompt(data.prompt);
+      })
+      .catch(err => console.error('Error fetching prompt:', err));
+  }, []);
+
+  const handleSavePrompt = async () => {
+    try {
+      const res = await fetch('/api/config/prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
+      if (res.ok) {
+        setSaveStatus('Prompt guardado y despliegue iniciado');
+      } else {
+        setSaveStatus('Error al guardar prompt');
+      }
+    } catch (e) {
+      console.error(e);
+      setSaveStatus('Error al guardar prompt');
+    }
+  };
 
   // Trigger simulated meta webhook incoming ping
   const handleSimulateWebhook = () => {
@@ -126,9 +155,30 @@ export default function SettingsSection({
                   onChange={(e) => setTemperature(parseFloat(e.target.value))}
                   className="w-full accent-cyan-600 bg-slate-100 h-1 rounded-lg outline-none cursor-pointer"
                 />
-                <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
-                  Valores más bajos (0.3) garantizan respuestas corporativas súper sólidas; valores más altos (0.8) son ideales para Stitch u otros juegos lúdicos.
-                </p>
+                  <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">Valores más bajos (0.3) garantizan respuestas corporativas súper sólidas; valores más altos (0.8) son ideales para Stitch u otros juegos lúdicos.</p>
+
+                {/* Prompt Configuration Card */}
+                <div className={`border rounded-2xl p-5 space-y-4 shadow-sm ${stitchMode ? 'bg-[#181818] border-pink-500/20 text-white' : 'bg-white border-slate-200 text-slate-700'}`}>
+                  <h4 className={`text-sm font-semibold flex items-center gap-2 pb-2 border-b ${stitchMode ? 'border-pink-500/10 text-white' : 'border-slate-100 text-slate-900'}`}>
+                    🔧 Configuración del Prompt de IA
+                  </h4>
+                  <div className="space-y-2">
+                    <textarea
+                      value={prompt}
+                      onChange={e => setPrompt(e.target.value)}
+                      rows={4}
+                      className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 ${stitchMode ? 'bg-[#131313] border-pink-500/20 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                      placeholder="Introduce el prompt predeterminado..."
+                    />
+                    <button
+                      onClick={handleSavePrompt}
+                      className={`px-4 py-2 rounded-md ${stitchMode ? 'bg-pink-600 hover:bg-pink-700 text-white' : 'bg-cyan-600 hover:bg-cyan-700 text-white'} transition-colors`}
+                    >
+                      Guardar Prompt
+                    </button>
+                    {saveStatus && <p className="text-xs text-green-400">{saveStatus}</p>}
+                  </div>
+                </div>
               </div>
 
               <div>

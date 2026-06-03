@@ -157,6 +157,30 @@ async function guardarDB(data: Record<string, Customer>) {
     }
 }
 
+async function leerPromptConfig(): Promise<string> {
+    if (!process.env.FIREBASE_DB_URL) return '';
+    try {
+        const url = `${process.env.FIREBASE_DB_URL}config/prompt.json`;
+        const response = await axios.get(url);
+        return response.data || '';
+    } catch (error: any) {
+        console.error('Error leyendo prompt desde Firebase:', error.message);
+        return '';
+    }
+}
+
+async function guardarPromptConfig(prompt: string) {
+    if (!process.env.FIREBASE_DB_URL) return;
+    try {
+        const url = `${process.env.FIREBASE_DB_URL}config/prompt.json`;
+        await axios.put(url, JSON.stringify(prompt), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+    } catch (error: any) {
+        console.error('Error guardando prompt en Firebase:', error.message);
+    }
+}
+
 async function getOrCreateCustomer(senderId: string, name: string, plataforma: 'whatsapp' | 'messenger' | 'instagram', db: Record<string, Customer>): Promise<Customer> {
     const key = `${plataforma}_${senderId}`;
     if (!db[key]) {
@@ -251,6 +275,13 @@ async function startServer() {
     const initDb: Record<string, Customer> = {};
     INITIAL_CUSTOMERS.forEach(c => { initDb[c.id] = c; });
     await guardarDB(initDb);
+  }
+
+  // Load saved AI prompt from Firebase on startup
+  const savedPrompt = await leerPromptConfig();
+  if (savedPrompt) {
+    process.env.PROMPT_DEFAULT = savedPrompt;
+    console.log('[Config] Prompt cargado desde Firebase.');
   }
 
   // -------------------------------------------------------------
@@ -636,57 +667,19 @@ async function startServer() {
   });
   app.post('/api/config/prompt', async (req, res) => {
     const { prompt } = req.body;
-    const fs = await import('fs');
-    const envPath = path.join(process.cwd(), '.env');
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ error: 'Prompt inválido.' });
+    }
     try {
-      let envContent = '';
-      if (fs.existsSync(envPath)) {
-        envContent = fs.readFileSync(envPath, 'utf8');
-      }
-      const regex = /^PROMPT_DEFAULT=.*$/m;
-      if (regex.test(envContent)) {
-        envContent = envContent.replace(regex, `PROMPT_DEFAULT=${prompt}`);
-      } else {
-        envContent += (envContent ? '\n' : '') + `PROMPT_DEFAULT=${prompt}`;
-      }
-      fs.writeFileSync(envPath, envContent, 'utf8');
+      // 1. Apply immediately to live server memory
       process.env.PROMPT_DEFAULT = prompt;
       
-      // Git commit and push changes
-      const { execSync } = await import('child_process');
-      try {
-        // Configure temporary git identity if none exists
-        try {
-          execSync('git config --global user.email || git config user.email');
-        } catch (e) {
-          execSync('git config user.name "SomosVenia Bot"');
-          execSync('git config user.email "bot@somosvenia.com"');
-        }
-        
-        execSync('git add -f .env');
-        const status = execSync('git status --porcelain').toString();
-        if (status.includes('.env')) {
-          execSync('git commit -m "Update AI prompt"');
-          const githubToken = process.env.GITHUB_TOKEN;
-          const remoteUrl = githubToken 
-            ? `https://${githubToken}@github.com/somosvenia-gif/Somos-Venia-CHATBOT-REDES-SOCIALES.git` 
-            : 'origin';
-          // Pull remote changes first to avoid rejected push, then force push
-          try {
-            execSync(`git pull ${remoteUrl} main --rebase --allow-unrelated-histories`, { timeout: 10000 });
-          } catch (pullErr) {
-            console.warn('git pull rebase failed, continuing with force push:', pullErr);
-          }
-          execSync(`git push ${remoteUrl} main --force`, { timeout: 15000 });
-        }
-      } catch (gitErr: any) {
-        console.error('Git push failed:', gitErr);
-        return res.status(500).json({ error: `Prompt guardado en .env localmente, pero falló el push: ${gitErr.message}` });
-      }
+      // 2. Persist to Firebase so it survives restarts
+      await guardarPromptConfig(prompt);
       
       res.json({ success: true });
     } catch (e: any) {
-      console.error('Error updating prompt:', e);
+      console.error('Error saving prompt:', e);
       res.status(500).json({ error: `Error al guardar el prompt: ${e.message}` });
     }
   });

@@ -140,7 +140,7 @@ export default function InboxSection({
   // Scroll to bottom of message thread
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeCustomer?.messages, aiLoading]);
+  }, [activeCustomer?.messages?.length, aiLoading]);
 
   if (!activeCustomer) {
     return (

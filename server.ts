@@ -622,7 +622,7 @@ Si detectas cualquiera de las siguientes situaciones, debes preparar la transfer
   app.post('/api/config/prompt', async (req, res) => {
     const { prompt } = req.body;
     const fs = await import('fs');
-    const envPath = path.resolve(__dirname, '..', '.env');
+    const envPath = path.join(process.cwd(), '.env');
     try {
       let envContent = fs.readFileSync(envPath, 'utf8');
       const regex = /^PROMPT_DEFAULT=.*$/m;
@@ -632,15 +632,33 @@ Si detectas cualquiera de las siguientes situaciones, debes preparar la transfer
         envContent += `\nPROMPT_DEFAULT=${prompt}`;
       }
       fs.writeFileSync(envPath, envContent, 'utf8');
+      
       // Git commit and push changes
       const { execSync } = await import('child_process');
-      execSync('git add .env');
-      execSync(`git commit -m "Update AI prompt"`);
-      execSync('git push origin main');
+      try {
+        // Configure temporary git identity if none exists
+        try {
+          execSync('git config --global user.email || git config user.email');
+        } catch (e) {
+          execSync('git config user.name "SomosVenia Bot"');
+          execSync('git config user.email "bot@somosvenia.com"');
+        }
+        
+        execSync('git add .env');
+        const status = execSync('git status --porcelain').toString();
+        if (status.includes('.env')) {
+          execSync('git commit -m "Update AI prompt"');
+          execSync('git push origin main');
+        }
+      } catch (gitErr: any) {
+        console.error('Git push failed:', gitErr);
+        return res.status(500).json({ error: `Prompt guardado en .env localmente, pero falló el push: ${gitErr.message}` });
+      }
+      
       res.json({ success: true });
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error updating prompt:', e);
-      res.status(500).json({ error: 'Failed to update prompt' });
+      res.status(500).json({ error: `Error al guardar el prompt: ${e.message}` });
     }
   });
 

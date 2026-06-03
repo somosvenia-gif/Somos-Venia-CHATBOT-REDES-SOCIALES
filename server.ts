@@ -647,7 +647,7 @@ Si detectas cualquiera de las siguientes situaciones, debes preparar la transfer
           execSync('git config user.email "bot@somosvenia.com"');
         }
         
-        execSync('git add .env');
+        execSync('git add -f .env');
         const status = execSync('git status --porcelain').toString();
         if (status.includes('.env')) {
           execSync('git commit -m "Update AI prompt"');

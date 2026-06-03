@@ -624,12 +624,15 @@ Si detectas cualquiera de las siguientes situaciones, debes preparar la transfer
     const fs = await import('fs');
     const envPath = path.join(process.cwd(), '.env');
     try {
-      let envContent = fs.readFileSync(envPath, 'utf8');
+      let envContent = '';
+      if (fs.existsSync(envPath)) {
+        envContent = fs.readFileSync(envPath, 'utf8');
+      }
       const regex = /^PROMPT_DEFAULT=.*$/m;
       if (regex.test(envContent)) {
         envContent = envContent.replace(regex, `PROMPT_DEFAULT=${prompt}`);
       } else {
-        envContent += `\nPROMPT_DEFAULT=${prompt}`;
+        envContent += (envContent ? '\n' : '') + `PROMPT_DEFAULT=${prompt}`;
       }
       fs.writeFileSync(envPath, envContent, 'utf8');
       

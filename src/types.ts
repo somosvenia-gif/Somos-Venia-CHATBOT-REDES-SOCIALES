@@ -27,6 +27,7 @@ export interface Customer {
   notes: string;
   aiActive: boolean;
   messages: Message[];
+  appointments?: { date: string; time: string; reason: string }[];
 }
 
 export interface CRMStats {

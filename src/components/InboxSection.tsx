@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Customer, Message, Platform } from '../types';
 import { 
-  Search, MessageSquare, Phone, MapPin, Mail, 
+  Search, MessageSquare, Phone, MapPin, Mail, Calendar,
   Video, MoreVertical, Send, Mic, Smile, Plus,
   Sparkles, PlusCircle, CheckCircle2, Bot, AlertTriangle, Trash2
 } from 'lucide-react';
@@ -496,10 +496,18 @@ export default function InboxSection({
           </div>
 
           <div className="flex gap-4">
-            <button className={`transition-colors cursor-pointer ${stitchMode ? 'text-pink-300 hover:text-white' : 'text-slate-500 hover:text-slate-800'}`} title="Videollamada simulada">
+            <button 
+              onClick={() => alert('📹 Simulación de videollamada: Iniciando videollamada de prueba con el cliente...')}
+              className={`transition-colors cursor-pointer ${stitchMode ? 'text-pink-300 hover:text-white' : 'text-slate-500 hover:text-slate-800'}`} 
+              title="Videollamada simulada"
+            >
               <Video className="w-5 h-5" />
             </button>
-            <button className={`transition-colors cursor-pointer ${stitchMode ? 'text-pink-300 hover:text-white' : 'text-slate-500 hover:text-slate-800'}`} title="Llamada simulada">
+            <button 
+              onClick={() => alert('📞 Simulación de llamada: Marcando número del contacto...')}
+              className={`transition-colors cursor-pointer ${stitchMode ? 'text-pink-300 hover:text-white' : 'text-slate-500 hover:text-slate-800'}`} 
+              title="Llamada simulada"
+            >
               <Phone className="w-5 h-5" />
             </button>
             <button 
@@ -911,6 +919,33 @@ export default function InboxSection({
               }`}
             />
             <p className="text-[9px] text-slate-400 text-right italic font-mono">Guardado automático en foco</p>
+          </div>
+
+          {/* Appointments module */}
+          <div className="pt-3 border-t border-slate-100 space-y-2">
+            <div className="flex items-center gap-1.5 justify-between">
+              <h5 className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                <Calendar className="w-3 h-3 text-cyan-600" /> Citas Agendadas
+              </h5>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 font-bold uppercase tracking-tighter">Auto-Agendado</span>
+            </div>
+            {activeCustomer.appointments && activeCustomer.appointments.length > 0 ? (
+              <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1">
+                {activeCustomer.appointments.map((appt, idx) => (
+                  <div key={idx} className={`p-2 rounded-lg border text-[10px] space-y-0.5 ${
+                    stitchMode ? 'bg-[#181818] border-pink-500/10' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <div className="flex justify-between font-bold text-cyan-600">
+                      <span>📅 {appt.date}</span>
+                      <span>⏰ {appt.time}</span>
+                    </div>
+                    <p className={`font-medium ${stitchMode ? 'text-white' : 'text-slate-700'}`}>{appt.reason}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-slate-400 italic">No hay citas registradas. El bot las agendará automáticamente si el cliente lo solicita.</p>
+            )}
           </div>
         </div>
 

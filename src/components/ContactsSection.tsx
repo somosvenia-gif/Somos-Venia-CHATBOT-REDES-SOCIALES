@@ -427,18 +427,8 @@ export default function ContactsSection({
           <p className="text-xs text-on-surface-variant font-mono">
             Mostrando 1 a {filteredCustomers.length} de {calculatedTotal.toLocaleString()} contactos
           </p>
-          <div className="flex items-center gap-1.5">
-            <button className="p-1 rounded bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:text-white cursor-pointer hover:border-primary">
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <button className="w-6 h-6 rounded bg-primary text-on-primary font-bold text-xs">1</button>
-            <button className="w-6 h-6 rounded bg-surface-container text-xs text-white hover:bg-surface-container-high transition-colors">2</button>
-            <button className="w-6 h-6 rounded bg-surface-container text-xs text-white hover:bg-surface-container-high transition-colors">3</button>
-            <span className="text-xs text-on-surface-variant px-1 font-mono">...</span>
-            <button className="w-6 h-6 rounded bg-surface-container text-xs text-white hover:bg-surface-container-high transition-colors">128</button>
-            <button className="p-1 rounded bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:text-white cursor-pointer hover:border-primary">
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+          <div className="flex items-center gap-1.5 opacity-75">
+            <span className="text-[10px] uppercase font-bold text-cyan-600 tracking-wider bg-cyan-500/10 px-2 py-1 rounded">✓ Lista Completa</span>
           </div>
         </div>
 

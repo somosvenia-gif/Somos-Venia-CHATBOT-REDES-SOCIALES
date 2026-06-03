@@ -671,7 +671,13 @@ async function startServer() {
           const remoteUrl = githubToken 
             ? `https://${githubToken}@github.com/somosvenia-gif/Somos-Venia-CHATBOT-REDES-SOCIALES.git` 
             : 'origin';
-          execSync(`git push ${remoteUrl} main`);
+          // Pull remote changes first to avoid rejected push, then force push
+          try {
+            execSync(`git pull ${remoteUrl} main --rebase --allow-unrelated-histories`, { timeout: 10000 });
+          } catch (pullErr) {
+            console.warn('git pull rebase failed, continuing with force push:', pullErr);
+          }
+          execSync(`git push ${remoteUrl} main --force`, { timeout: 15000 });
         }
       } catch (gitErr: any) {
         console.error('Git push failed:', gitErr);

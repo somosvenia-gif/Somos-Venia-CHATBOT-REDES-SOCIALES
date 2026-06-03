@@ -33,6 +33,30 @@ if (aiApiKey) {
 }
 
 // -------------------------------------------------------------
+// AI API RETRY WRAPPER
+// -------------------------------------------------------------
+async function generateContentWithRetry(aiClient: GoogleGenAI, params: any, maxRetries = 3) {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      return await aiClient.models.generateContent(params);
+    } catch (error: any) {
+      if (error?.status === 503 || error?.message?.includes('503') || error?.message?.includes('high demand')) {
+        attempt++;
+        if (attempt >= maxRetries) {
+          throw error;
+        }
+        const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+        console.warn(`[AI API] 503 Service Unavailable. Retrying in ${Math.round(delay)}ms... (Attempt ${attempt}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+
+// -------------------------------------------------------------
 // SERVER-SIDE DATABASE DEFINITIONS & MEMORY ENGINE
 // -------------------------------------------------------------
 interface Message {
@@ -387,12 +411,12 @@ Si detectas cualquiera de las siguientes situaciones, debes preparar la transfer
                   contents.push(...currentParts);
               }
 
-              const response = await ai.models.generateContent({
+              const response = await generateContentWithRetry(ai, {
                   model: 'gemini-3.5-flash',
                   contents: contents,
                   config: { systemInstruction, temperature: 0.7 }
               });
-              aiResponseText = response.text || aiResponseText;
+              aiResponseText = response?.text || aiResponseText;
 
               customer.messages.push({ 
                   id: Math.random().toString(), 
@@ -550,13 +574,13 @@ Si detectas cualquiera de las siguientes situaciones, debes preparar la transfer
         contents.push(...currentParts);
       }
 
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithRetry(ai, {
         model: 'gemini-3.5-flash',
         contents: contents,
         config: { systemInstruction, temperature: 0.7 }
       });
 
-      res.json({ text: response.text || "No pude generar una respuesta." });
+      res.json({ text: response?.text || "No pude generar una respuesta." });
     } catch (e: any) {
       console.error('Error in /api/chat/respond:', e);
       res.status(500).json({ error: e.message });
@@ -573,12 +597,12 @@ Si detectas cualquiera de las siguientes situaciones, debes preparar la transfer
           El cliente envió: "${clientMessage}".
           La sugerencia debe ser muy breve, directa y amigable.`;
           
-          const response = await ai.models.generateContent({
+          const response = await generateContentWithRetry(ai, {
               model: 'gemini-3.5-flash',
               contents: `Genera una única sugerencia corta de respuesta rápida en base a esto: ${clientMessage}`,
               config: { systemInstruction, temperature: 0.7 }
           });
-          res.json({ suggestion: response.text?.trim() || 'Sugerencia predeterminada.' });
+          res.json({ suggestion: response?.text?.trim() || 'Sugerencia predeterminada.' });
       } catch (e: any) {
           console.error(e);
           res.json({ suggestion: 'Sugerencia de contingencia: Hola, con gusto te ayudamos con tu requerimiento.' });

@@ -38,19 +38,21 @@ export default function SettingsSection({
 
   const handleSavePrompt = async () => {
     try {
+      setSaveStatus('Guardando...');
       const res = await fetch('/api/config/prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
       });
+      const data = await res.json();
       if (res.ok) {
-        setSaveStatus('Prompt guardado y despliegue iniciado');
+        setSaveStatus('¡Prompt guardado y despliegue iniciado en Render!');
       } else {
-        setSaveStatus('Error al guardar prompt');
+        setSaveStatus(data.error || 'Error al guardar prompt');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setSaveStatus('Error al guardar prompt');
+      setSaveStatus('Error al conectar con el servidor');
     }
   };
 
@@ -176,7 +178,17 @@ export default function SettingsSection({
                     >
                       Guardar Prompt
                     </button>
-                    {saveStatus && <p className="text-xs text-green-400">{saveStatus}</p>}
+                    {saveStatus && (
+                      <p className={`text-xs ${
+                        saveStatus.toLowerCase().includes('error') || saveStatus.toLowerCase().includes('falló')
+                          ? 'text-rose-500 font-medium'
+                          : saveStatus.includes('Guardando')
+                            ? 'text-yellow-500'
+                            : 'text-green-500 font-medium'
+                      }`}>
+                        {saveStatus}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

@@ -648,7 +648,11 @@ Si detectas cualquiera de las siguientes situaciones, debes preparar la transfer
         const status = execSync('git status --porcelain').toString();
         if (status.includes('.env')) {
           execSync('git commit -m "Update AI prompt"');
-          execSync('git push origin main');
+          const githubToken = process.env.GITHUB_TOKEN;
+          const remoteUrl = githubToken 
+            ? `https://${githubToken}@github.com/somosvenia-gif/Somos-Venia-CHATBOT-REDES-SOCIALES.git` 
+            : 'origin';
+          execSync(`git push ${remoteUrl} main`);
         }
       } catch (gitErr: any) {
         console.error('Git push failed:', gitErr);

@@ -1,0 +1,23 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "other",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/server.mjs"
+    }
+  ],
+  "env": {
+    "FACEBOOK_PAGE_ID": "@FACEBOOK_PAGE_ID",
+    "FIREBASE_DB_URL": "@FIREBASE_DB_URL",
+    "GEMINI_API_KEY": "@GEMINI_API_KEY",
+    "META_VERIFY_TOKEN": "@META_VERIFY_TOKEN",
+    "WHATSAPP_PHONE_NUMBER_ID": "@WHATSAPP_PHONE_NUMBER_ID",
+    "WHATSAPP_TOKEN": "@WHATSAPP_TOKEN",
+    "FACEBOOK_PAGE_TOKEN": "@FACEBOOK_PAGE_TOKEN",
+    "GITHUB_TOKEN": "@GITHUB_TOKEN"
+  }
+}

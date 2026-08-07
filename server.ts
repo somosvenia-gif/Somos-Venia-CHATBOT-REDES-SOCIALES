@@ -248,7 +248,14 @@ async function enviarMensajeWhatsApp(to: string, text: string) {
 
 async function enviarMensajeMessengerEInstagram(recipientId: string, text: string, plataforma: string) {
     if(!process.env.FACEBOOK_PAGE_TOKEN) return;
-    const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${process.env.FACEBOOK_PAGE_TOKEN}`;
+
+    let url: string;
+    if (plataforma === 'instagram') {
+        url = `https://graph.instagram.com/v20.0/${process.env.FACEBOOK_PAGE_ID}/messages?access_token=${process.env.FACEBOOK_PAGE_TOKEN}`;
+    } else {
+        url = `https://graph.facebook.com/v20.0/me/messages?access_token=${process.env.FACEBOOK_PAGE_TOKEN}`;
+    }
+
     try {
         await axios.post(url, {
             recipient: { id: recipientId },

@@ -247,14 +247,24 @@ async function enviarMensajeWhatsApp(to: string, text: string) {
 }
 
 async function enviarMensajeMessengerEInstagram(recipientId: string, text: string, plataforma: string) {
-    if(!process.env.FACEBOOK_PAGE_TOKEN) return;
-
-    let url: string;
+    // Para Instagram, enviar a través de n8n webhook
     if (plataforma === 'instagram') {
-        url = `https://graph.instagram.com/v20.0/${process.env.FACEBOOK_PAGE_ID}/messages?access_token=${process.env.FACEBOOK_PAGE_TOKEN}`;
-    } else {
-        url = `https://graph.facebook.com/v20.0/me/messages?access_token=${process.env.FACEBOOK_PAGE_TOKEN}`;
+        const n8nUrl = 'https://somosveniacompany.app.n8n.cloud/webhook/instagram-message';
+        try {
+            await axios.post(n8nUrl, {
+                recipientId: recipientId,
+                text: text
+            });
+            console.log(`[${plataforma.toUpperCase()}] Mensaje enviado de vuelta a través de n8n.`);
+        } catch (error: any) {
+            console.error(`Error enviando a ${plataforma} via n8n:`, error.message);
+        }
+        return;
     }
+
+    // Para Messenger, usar Meta API directamente
+    if(!process.env.FACEBOOK_PAGE_TOKEN) return;
+    const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${process.env.FACEBOOK_PAGE_TOKEN}`;
 
     try {
         await axios.post(url, {
